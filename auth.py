@@ -23,6 +23,7 @@ from security import (
 )
 from middleware import get_client_ip
 from nowplaying import require_dj
+from stream import get_live_stream_for_dj, _rtmp_stats_for
 
 logger = logging.getLogger(__name__)
 
@@ -165,12 +166,9 @@ async def get_dashboard(dj: Dict = Depends(require_dj)):
         "must_change_password": bool(row[6]), "created_at": row[7], "last_login": row[8],
     }
 
-    # No RTMP integration exists yet - "live" is approximated by whether this
-    # DJ currently has a nowplaying row (set via their metadata token or
-    # manual entry). Good enough until real stream detection is built.
-    is_live = db.execute_one(
-        "SELECT 1 FROM nowplaying WHERE dj_id = ?", (dj["dj_id"],)
-    ) is not None
+    stream_name = get_live_stream_for_dj(dj["dj_id"])
+    is_live = stream_name is not None
+    viewers = _rtmp_stats_for(stream_name).get("viewers") if stream_name else None
 
     show_rows = db.execute_query(
         """
@@ -193,7 +191,7 @@ async def get_dashboard(dj: Dict = Depends(require_dj)):
 
     return {
         "profile": profile,
-        "current_stream_status": {"is_live": is_live},
+        "current_stream_status": {"is_live": is_live, "viewers": viewers},
         "stream_keys": StreamKeyManager.list_keys_for_dj(dj["dj_id"]),
         "upcoming_shows": upcoming_shows,
     }

@@ -133,6 +133,13 @@ def init_tables() -> None:
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS live_streams (
+            stream_name TEXT PRIMARY KEY,
+            dj_id INTEGER NOT NULL,
+            started_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (dj_id) REFERENCES djs(id)
+        );
+
         CREATE TABLE IF NOT EXISTS autoplay_queue (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             library_id INTEGER NOT NULL,

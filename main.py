@@ -23,6 +23,7 @@ import auth
 import autoplay
 import nowplaying
 import schedule
+import stream
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -41,9 +42,15 @@ app.include_router(nowplaying.router)
 app.include_router(schedule.router)
 app.include_router(autoplay.router)
 app.include_router(autoplay.admin_router)
+app.include_router(stream.router)
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 app.mount("/uploads", StaticFiles(directory=str(BASE_DIR / "uploads")), name="uploads")
+# Registered after stream.router so the explicit /api/stream/dash/manifest.mpd
+# route (which redirects to whichever file is actually live) wins over this
+# mount; every other file under the prefix (segments, the real .mpd) falls
+# through to here.
+app.mount("/api/stream/dash", StaticFiles(directory=str(stream.DASH_DIR)), name="dash")
 
 HTML_PAGES = {
     "/": "index.html",

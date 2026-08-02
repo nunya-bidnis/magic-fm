@@ -59,7 +59,7 @@ async def autoplay_status():
         tuple(UNLICENSED_SOURCES),
     )[0]
     queue_length = db.execute_one("SELECT COUNT(*) FROM autoplay_queue")[0]
-    nobody_live = db.execute_one("SELECT COUNT(*) FROM nowplaying")[0] == 0
+    nobody_live = db.execute_one("SELECT COUNT(*) FROM live_streams")[0] == 0
 
     return {
         "autoplay_active": nobody_live and total > 0,
