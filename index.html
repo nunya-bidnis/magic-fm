@@ -162,9 +162,34 @@
                 <div id="chat-messages" class="chat-messages">
                     <p class="chat-placeholder">Connected via Discord</p>
                 </div>
+
+                <div id="chat-nickname-row" style="display:flex; gap:10px; margin-top:12px;">
+                    <input type="text" id="chat-nickname-input" placeholder="Pick a nickname to chat..."
+                           maxlength="32" autocomplete="off" style="flex:1;">
+                    <button id="chat-nickname-save" class="control-btn">Set nickname</button>
+                </div>
+
+                <form id="chat-send-form" style="display:none; gap:10px; margin-top:12px;">
+                    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+                        <span class="small" style="color: var(--text-secondary);">
+                            Chatting as <strong id="chat-current-nickname"></strong>
+                        </span>
+                        <button type="button" id="chat-nickname-change" class="control-btn"
+                                style="background:transparent; border:1px solid var(--border-color); font-size:0.8rem; padding:4px 10px;">
+                            change
+                        </button>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" id="chat-message-input" placeholder="Say something..."
+                               maxlength="2000" autocomplete="off" style="flex:1;">
+                        <button type="submit" class="control-btn">Send</button>
+                    </div>
+                    <div id="chat-send-error" class="error-message"></div>
+                </form>
+
                 <div class="discord-info">
                     <p>💬 Join our Discord community to chat live!</p>
-                    <p class="small">Messages appear here automatically</p>
+                    <p class="small">Messages mirror to/from our Discord channel</p>
                 </div>
             </div>
         </section>

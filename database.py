@@ -150,11 +150,21 @@ def init_tables() -> None:
             FOREIGN KEY (library_id) REFERENCES autoplay_library(id)
         );
 
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL,
+            nickname TEXT NOT NULL,
+            message TEXT NOT NULL,
+            discord_message_id TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
         CREATE INDEX IF NOT EXISTS idx_stream_keys_dj ON stream_keys(dj_id);
         CREATE INDEX IF NOT EXISTS idx_metadata_tokens_dj ON metadata_tokens(dj_id);
         CREATE INDEX IF NOT EXISTS idx_audit_log_ts ON audit_log(timestamp);
         CREATE INDEX IF NOT EXISTS idx_shows_start ON shows(start_time);
         CREATE INDEX IF NOT EXISTS idx_autoplay_queue_created ON autoplay_queue(created_at);
+        CREATE INDEX IF NOT EXISTS idx_chat_messages_created ON chat_messages(created_at);
         """
     )
     conn.commit()

@@ -149,5 +149,94 @@ function disconnectChat() {
     // Cleanup code if needed
 }
 
+/**
+ * Nickname-only chat identity - no account, no password. Just remembered in
+ * this browser via localStorage so returning visitors aren't re-prompted.
+ */
+const CHAT_NICKNAME_KEY = 'chat_nickname';
+
+const CHAT_NICKNAME_ROW = document.getElementById('chat-nickname-row');
+const CHAT_NICKNAME_INPUT = document.getElementById('chat-nickname-input');
+const CHAT_NICKNAME_SAVE = document.getElementById('chat-nickname-save');
+const CHAT_SEND_FORM = document.getElementById('chat-send-form');
+const CHAT_CURRENT_NICKNAME = document.getElementById('chat-current-nickname');
+const CHAT_NICKNAME_CHANGE = document.getElementById('chat-nickname-change');
+const CHAT_MESSAGE_INPUT = document.getElementById('chat-message-input');
+const CHAT_SEND_ERROR = document.getElementById('chat-send-error');
+
+function getChatNickname() {
+    return localStorage.getItem(CHAT_NICKNAME_KEY);
+}
+
+function setChatNickname(name) {
+    localStorage.setItem(CHAT_NICKNAME_KEY, name);
+    refreshChatIdentityUI();
+}
+
+function refreshChatIdentityUI() {
+    const nickname = getChatNickname();
+    if (nickname) {
+        CHAT_NICKNAME_ROW.style.display = 'none';
+        CHAT_SEND_FORM.style.display = 'block';
+        CHAT_CURRENT_NICKNAME.textContent = nickname;
+    } else {
+        CHAT_NICKNAME_ROW.style.display = 'flex';
+        CHAT_SEND_FORM.style.display = 'none';
+    }
+}
+
+function showChatSendError(message) {
+    CHAT_SEND_ERROR.textContent = message;
+    CHAT_SEND_ERROR.classList.add('show');
+    setTimeout(() => CHAT_SEND_ERROR.classList.remove('show'), 4000);
+}
+
+if (CHAT_NICKNAME_SAVE) {
+    CHAT_NICKNAME_SAVE.addEventListener('click', () => {
+        const name = CHAT_NICKNAME_INPUT.value.trim();
+        if (!name) return;
+        setChatNickname(name);
+    });
+
+    CHAT_NICKNAME_INPUT.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') CHAT_NICKNAME_SAVE.click();
+    });
+
+    CHAT_NICKNAME_CHANGE.addEventListener('click', () => {
+        localStorage.removeItem(CHAT_NICKNAME_KEY);
+        CHAT_NICKNAME_INPUT.value = '';
+        refreshChatIdentityUI();
+    });
+
+    CHAT_SEND_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const nickname = getChatNickname();
+        const message = CHAT_MESSAGE_INPUT.value.trim();
+        if (!nickname || !message) return;
+
+        try {
+            const res = await fetch('/api/chat/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nickname, message })
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                showChatSendError(data.detail || 'Could not send message');
+                return;
+            }
+
+            CHAT_MESSAGE_INPUT.value = '';
+            loadChatMessages();
+        } catch {
+            showChatSendError('Could not send message. Check your connection.');
+        }
+    });
+
+    refreshChatIdentityUI();
+}
+
 // Initialize chat on load
 setupChatUpdates();

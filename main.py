@@ -21,6 +21,7 @@ from database import init_tables
 import admin
 import auth
 import autoplay
+import chat
 import nowplaying
 import schedule
 import stream
@@ -43,6 +44,7 @@ app.include_router(schedule.router)
 app.include_router(autoplay.router)
 app.include_router(autoplay.admin_router)
 app.include_router(stream.router)
+app.include_router(chat.router)
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 app.mount("/uploads", StaticFiles(directory=str(BASE_DIR / "uploads")), name="uploads")
