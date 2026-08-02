@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DJ Dashboard - Magic.fm</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">🎙️ Magic.fm</h1>
+                <p class="tagline">DJ Dashboard</p>
+            </div>
+            <nav class="nav">
+                <a href="/" class="nav-link">Home</a>
+                <span id="dj-name" style="color: white; font-weight: 600;"></span>
+                <button id="logout-btn" class="nav-link" style="background: transparent; border: none; cursor: pointer;">Logout</button>
+            </nav>
+        </header>
+
+        <!-- Profile & Stream Status -->
+        <section class="schedule-section">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <h3>DJ Profile</h3>
+                    <div id="profile-info" style="background-color: rgba(124, 58, 237, 0.1); padding: 20px; border-radius: 8px; margin-top: 15px;">
+                        <p id="profile-username"></p>
+                        <p id="profile-email"></p>
+                        <p id="profile-created" style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 10px;"></p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3>Stream Status</h3>
+                    <div id="stream-status-info" style="background-color: rgba(239, 68, 68, 0.1); padding: 20px; border-radius: 8px; margin-top: 15px;">
+                        <p id="stream-status-text">Offline</p>
+                        <p id="stream-status-viewers" style="color: var(--text-secondary);"></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stream Keys -->
+        <section class="schedule-section">
+            <h2>Stream Keys</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                Use these keys with OBS or Streamlabs to broadcast
+            </p>
+
+            <div id="stream-keys-list" class="schedule-grid">
+                <p class="loading">Loading stream keys...</p>
+            </div>
+
+            <button id="generate-key-btn" class="form-btn" style="width: auto; margin-top: 20px;">
+                Generate New Key
+            </button>
+        </section>
+
+        <!-- Metadata Token -->
+        <section class="schedule-section">
+            <h2>Now Playing Token</h2>
+
+            <div style="background-color: rgba(16, 185, 129, 0.08); border-left: 4px solid var(--success-color); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="font-size: 0.95rem; margin-bottom: 8px;">
+                    <strong>This is not your stream key.</strong>
+                </p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                    This token only updates the track name shown on the homepage. It cannot
+                    be used to broadcast. Put this one in your Now Playing agent config —
+                    never your stream key. Rotating it will not interrupt a live set.
+                </p>
+            </div>
+
+            <div style="background-color: rgba(0, 0, 0, 0.2); padding: 12px; border-radius: 6px; font-family: monospace; word-break: break-all; margin-bottom: 12px;"
+                 id="metadata-token-display">Loading...</div>
+
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button id="copy-metadata-btn" class="control-btn">Copy Token</button>
+                <button id="rotate-metadata-btn" class="control-btn"
+                        style="background-color: transparent; border: 1px solid var(--border-color);">
+                    Rotate Token
+                </button>
+            </div>
+        </section>
+
+        <!-- Upcoming Shows -->
+        <section class="schedule-section">
+            <h2>Your Upcoming Shows</h2>
+
+            <div id="shows-list" class="schedule-grid">
+                <p class="loading">Loading schedule...</p>
+            </div>
+
+            <button id="create-show-btn" class="form-btn" style="width: auto; margin-top: 20px;">
+                Create Show
+            </button>
+        </section>
+
+        <!-- Create Show Modal (Hidden) -->
+        <div id="create-show-modal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); display: none; align-items: center; justify-content: center; z-index: 1000;">
+            <div class="auth-card" style="max-width: 600px; position: relative;">
+                <button id="close-modal-btn" style="position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: var(--text-primary); font-size: 1.5rem; cursor: pointer;">✕</button>
+
+                <h2 style="margin-bottom: 20px;">Create New Show</h2>
+
+                <div id="show-error" class="error-message"></div>
+
+                <form id="create-show-form">
+                    <div class="form-group">
+                        <label for="show-name">Show Name</label>
+                        <input type="text" id="show-name" required maxlength="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="show-desc">Description</label>
+                        <textarea id="show-desc" maxlength="500"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="show-start">Start Time</label>
+                        <input type="datetime-local" id="show-start" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="show-end">End Time</label>
+                        <input type="datetime-local" id="show-end" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="show-recurring"> Recurring Show
+                        </label>
+                    </div>
+
+                    <button type="submit" class="form-btn">Create Show</button>
+                </form>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>&copy; 2024 Magic.fm</p>
+        </footer>
+    </div>
+
+    <script>
+        // Auth token management
+        let authToken = localStorage.getItem('auth_token');
+
+        // Check authentication
+        window.addEventListener('load', () => {
+            if (!authToken) {
+                window.location.href = '/dj-login.html';
+                return;
+            }
+
+            loadDashboard();
+            setupEventListeners();
+        });
+
+        /**
+         * Setup event listeners
+         */
+        function setupEventListeners() {
+            document.getElementById('logout-btn').addEventListener('click', logout);
+            document.getElementById('generate-key-btn').addEventListener('click', generateStreamKey);
+            document.getElementById('create-show-btn').addEventListener('click', openCreateShowModal);
+            document.getElementById('close-modal-btn').addEventListener('click', closeCreateShowModal);
+            document.getElementById('create-show-form').addEventListener('submit', createShow);
+            document.getElementById('copy-metadata-btn').addEventListener('click', copyMetadataToken);
+            document.getElementById('rotate-metadata-btn').addEventListener('click', rotateMetadataToken);
+            loadMetadataToken();
+        }
+
+        let currentMetadataToken = null;
+
+        /**
+         * Load the DJ's metadata token. Issued automatically on first access.
+         */
+        async function loadMetadataToken() {
+            try {
+                const res = await fetch('/api/dj/metadata-token', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (!res.ok) throw new Error('failed');
+                const data = await res.json();
+                currentMetadataToken = data.metadata_token;
+                document.getElementById('metadata-token-display').textContent = currentMetadataToken;
+            } catch {
+                document.getElementById('metadata-token-display').textContent =
+                    'Could not load token. Refresh the page.';
+            }
+        }
+
+        function copyMetadataToken() {
+            if (!currentMetadataToken) return;
+            navigator.clipboard.writeText(currentMetadataToken)
+                .then(() => alert('Metadata token copied.\n\nThis goes in your Now Playing agent config - not your stream key.'))
+                .catch(err => console.error('Copy failed:', err));
+        }
+
+        async function rotateMetadataToken() {
+            if (!confirm('Rotate your metadata token?\n\nYour old token stops working immediately and you will need to update your agent config.\n\nThis will NOT interrupt a live broadcast.')) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/dj/metadata-token', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (!res.ok) throw new Error('failed');
+                const data = await res.json();
+                currentMetadataToken = data.metadata_token;
+                document.getElementById('metadata-token-display').textContent = currentMetadataToken;
+                alert('Token rotated. Update your agent config with the new value.');
+            } catch {
+                alert('Could not rotate token. Try again.');
+            }
+        }
+
+        /**
+         * Load dashboard data
+         */
+        async function loadDashboard() {
+            try {
+                const response = await fetch('/api/dj/dashboard', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.status === 401) {
+                    localStorage.removeItem('auth_token');
+                    window.location.href = '/dj-login.html';
+                    return;
+                }
+
+                if (!response.ok) throw new Error('Failed to load dashboard');
+
+                const data = await response.json();
+                displayDashboard(data);
+
+            } catch (error) {
+                console.error('Dashboard error:', error);
+                document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h2>Error loading dashboard</h2><p>Please <a href="/dj-login.html">login again</a></p></div>';
+            }
+        }
+
+        /**
+         * Display dashboard data
+         */
+        function displayDashboard(data) {
+            const profile = data.profile;
+
+            // Display DJ name in header
+            document.getElementById('dj-name').textContent = `Hi, ${escapeHtml(profile.username)}!`;
+
+            // Display profile info
+            document.getElementById('profile-username').textContent = `Username: ${escapeHtml(profile.username)}`;
+            document.getElementById('profile-email').textContent = `Email: ${escapeHtml(profile.email)}`;
+            document.getElementById('profile-created').textContent = `Joined: ${formatDate(profile.created_at)}`;
+
+            // Display stream status
+            if (data.current_stream_status) {
+                const status = data.current_stream_status;
+                document.getElementById('stream-status-text').textContent = status.is_live ? '● Live Now' : 'Offline';
+                document.getElementById('stream-status-text').style.color = status.is_live ? 'var(--success-color)' : 'var(--danger-color)';
+                if (status.viewers) {
+                    document.getElementById('stream-status-viewers').textContent = `${status.viewers} viewers`;
+                }
+            }
+
+            // Display stream keys
+            displayStreamKeys(data.stream_keys);
+
+            // Display upcoming shows
+            displayUpcomingShows(data.upcoming_shows);
+        }
+
+        /**
+         * Display stream keys
+         */
+        function displayStreamKeys(keys) {
+            const list = document.getElementById('stream-keys-list');
+
+            if (!keys || keys.length === 0) {
+                list.innerHTML = '<p class="loading">No stream keys. Generate one to get started!</p>';
+                return;
+            }
+
+            list.innerHTML = keys
+                .map(key => `
+                    <div class="schedule-item">
+                        <h4>Stream Key</h4>
+                        <div style="background-color: rgba(0, 0, 0, 0.2); padding: 10px; border-radius: 6px; font-family: monospace; word-break: break-all; margin: 10px 0;">
+                            ${escapeHtml(key.stream_key)}
+                        </div>
+                        <button onclick="copyStreamKey('${key.stream_key}')" class="control-btn" style="width: 100%;">Copy Key</button>
+                        <p class="time" style="margin-top: 10px;">Created: ${formatDate(key.created_at)}</p>
+                        ${key.last_used ? `<p class="time">Last used: ${formatDate(key.last_used)}</p>` : ''}
+                    </div>
+                `)
+                .join('');
+        }
+
+        /**
+         * Display upcoming shows
+         */
+        function displayUpcomingShows(shows) {
+            const list = document.getElementById('shows-list');
+
+            if (!shows || shows.length === 0) {
+                list.innerHTML = '<p class="loading">No upcoming shows. Create one to get scheduled!</p>';
+                return;
+            }
+
+            list.innerHTML = shows
+                .map(show => `
+                    <div class="schedule-item">
+                        <h4>${escapeHtml(show.show_name)}</h4>
+                        <div class="time">${formatDate(show.start_time)} - ${formatDate(show.end_time)}</div>
+                        ${show.description ? `<p>${escapeHtml(show.description)}</p>` : ''}
+                    </div>
+                `)
+                .join('');
+        }
+
+        /**
+         * Generate new stream key
+         */
+        async function generateStreamKey() {
+            try {
+                const response = await fetch('/api/auth/stream-key', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Failed to generate key');
+
+                alert('Stream key generated! Refresh the page to see it.');
+                loadDashboard();
+
+            } catch (error) {
+                console.error('Generate key error:', error);
+                alert('Error generating stream key');
+            }
+        }
+
+        /**
+         * Copy stream key to clipboard
+         */
+        function copyStreamKey(key) {
+            navigator.clipboard.writeText(key).then(() => {
+                alert('Stream key copied to clipboard!');
+            }).catch(err => {
+                console.error('Copy error:', err);
+            });
+        }
+
+        /**
+         * Open create show modal
+         */
+        function openCreateShowModal() {
+            document.getElementById('create-show-modal').style.display = 'flex';
+        }
+
+        /**
+         * Close create show modal
+         */
+        function closeCreateShowModal() {
+            document.getElementById('create-show-modal').style.display = 'none';
+            document.getElementById('create-show-form').reset();
+            document.getElementById('show-error').textContent = '';
+            document.getElementById('show-error').classList.remove('show');
+        }
+
+        /**
+         * Create new show
+         */
+        async function createShow(e) {
+            e.preventDefault();
+
+            const showName = document.getElementById('show-name').value.trim();
+            const showDesc = document.getElementById('show-desc').value.trim();
+            const showStart = document.getElementById('show-start').value;
+            const showEnd = document.getElementById('show-end').value;
+            const isRecurring = document.getElementById('show-recurring').checked;
+
+            if (!showName || !showStart || !showEnd) {
+                showError('Required fields missing');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/schedule', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        show_name: showName,
+                        description: showDesc || null,
+                        start_time: new Date(showStart).toISOString(),
+                        end_time: new Date(showEnd).toISOString(),
+                        is_recurring: isRecurring,
+                        recurring_days: null
+                    })
+                });
+
+                if (!response.ok) throw new Error('Failed to create show');
+
+                alert('Show created successfully!');
+                closeCreateShowModal();
+                loadDashboard();
+
+            } catch (error) {
+                console.error('Create show error:', error);
+                showError('Error creating show');
+            }
+        }
+
+        /**
+         * Show error in modal
+         */
+        function showError(message) {
+            const errorEl = document.getElementById('show-error');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+        }
+
+        /**
+         * Logout
+         */
+        function logout() {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('dj_username');
+            window.location.href = '/';
+        }
+
+        /**
+         * Format date/time
+         */
+        function formatDate(dateString) {
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch {
+                return dateString;
+            }
+        }
+
+        /**
+         * Escape HTML
+         */
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

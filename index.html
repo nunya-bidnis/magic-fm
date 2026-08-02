@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Midnight Mass Live - 24/7 Online Radio</title>
+    <link rel="stylesheet" href="static/css/style.css">
+    <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+</head>
+<body>
+        <div class="vw-scene" aria-hidden="true">
+            <div class="vw-sky">
+                <span class="vw-prism"></span>
+                <span class="vw-prism"></span>
+                <span class="vw-prism"></span>
+                <span class="vw-prism"></span>
+                <span class="vw-prism"></span>
+                <span class="vw-prism"></span>
+            </div>
+            <div class="vw-fog"></div>
+            <div class="vw-grid"></div>
+        </div>
+        <div class="vw-scrim" aria-hidden="true"></div>
+
+        <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo"><img src="static/img/mingeplex-logo-final.png" alt="Mingeplex Live" class="logo-img"></h1>
+                <p class="tagline">The internet's #1 chat radio station.</p>
+                <div class="genre-strip">
+                    <span class="genre-chip">Dub</span>
+                    <span class="genre-chip">EDM</span>
+                    <span class="genre-chip">Metal</span>
+                    <span class="genre-chip">Hip Hop</span>
+                    <span class="genre-chip">Phonk</span>
+                    <span class="genre-chip">Juggalo Rap</span>
+                    <span class="genre-chip">Ragga</span>
+                    <span class="genre-chip">Ska</span>
+                    <span class="genre-chip">Crackrocksteady</span>
+                    <span class="genre-chip">Punk</span>
+                    <span class="genre-chip">Hardcore</span>
+                    <span class="genre-chip">Dubstep</span>
+                    <span class="genre-chip">Breakbeats</span>
+                    <span class="genre-chip">Trap</span>
+                    <span class="genre-chip">Japanese Jazz</span>
+                    <span class="genre-chip">Dancehall</span>
+                    <span class="genre-chip">Many more</span>
+                </div>
+            </div>
+            <nav class="nav">
+                <a href="/" class="nav-link active">Home</a>
+                <a href="#player" class="nav-link">Now Playing</a>
+                <a href="#schedule" class="nav-link">Schedule</a>
+                <a href="#chat" class="nav-link">Chat</a>
+                <a href="dj-login.html" class="nav-link nav-cta">Apply to DJ</a>
+            </nav>
+        </header>
+
+        <div class="graffiti-callout">
+            Come chat with us at discord.gg/Ay8pqzk6hC
+            <br>
+            <span class="graffiti-callout-cta">CLICK THE CHAT BUTTON TO CONNECT</span>
+        </div>
+        <div id="discord-chat-embed" class="discord-embed-slot"></div>
+
+        <!-- Now Playing Ticker -->
+        <section class="nowplaying-ticker" aria-live="polite">
+            <div class="np-label">Now Playing</div>
+
+            <div id="np-idle" class="np-idle">
+                No track information available
+            </div>
+
+            <div id="np-content" class="np-content" style="display: none;">
+                <img id="np-art" class="np-art" alt="" style="display: none;">
+                <div class="np-text">
+                    <div id="np-track" class="np-track"></div>
+                    <div id="np-artist" class="np-artist"></div>
+                    <div class="np-dj-line">DJ: <span id="np-dj" class="np-dj"></span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Live Player Section -->
+        <section class="player-section" id="player">
+            <div class="player-container">
+                <div class="player-status">
+                    <span id="stream-status" class="status-indicator offline">● Offline</span>
+                </div>
+                <video id="video-player" style="width: 100%; max-width: 800px;"></video>
+                <div class="player-controls">
+                    <button id="play-btn" class="control-btn">Play</button>
+                    <button id="mute-btn" class="control-btn">Unmute</button>
+                    <div class="volume-control">
+                        <input type="range" id="volume" min="0" max="100" value="70" class="volume-slider">
+                    </div>
+                </div>
+                <div class="player-info">
+                    <p id="now-playing">No stream available</p>
+                    <p id="stream-details"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Current Show & Next Show -->
+        <section class="current-next">
+            <div class="show-card current-show">
+                <h3>Now Playing</h3>
+                <p id="current-show-name">Waiting for next show...</p>
+                <p id="current-show-time" class="show-time"></p>
+                <p id="current-show-desc" class="show-desc"></p>
+            </div>
+            <div class="show-card next-show">
+                <h3>Up Next</h3>
+                <p id="next-show-name">Check schedule below</p>
+                <p id="next-show-time" class="show-time"></p>
+            </div>
+        </section>
+
+        <!-- Schedule Section -->
+        <section id="schedule" class="schedule-section">
+            <h2>Upcoming Schedule</h2>
+            <div id="schedule-list" class="schedule-grid">
+                <p class="loading">Loading schedule...</p>
+            </div>
+        </section>
+
+        <!-- Request a Track -->
+        <section class="schedule-section" id="request-section" style="display: none;">
+            <h2>Request a Track</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                Nobody's on the decks right now — pick something and it goes in the queue.
+            </p>
+
+            <div id="request-msg" class="success-message"></div>
+            <div id="request-err" class="error-message"></div>
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="req-search">Search</label>
+                    <input type="text" id="req-search" placeholder="Title or artist..." autocomplete="off">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="req-name">Your name (optional)</label>
+                    <input type="text" id="req-name" maxlength="32" placeholder="Anonymous" autocomplete="off">
+                </div>
+            </div>
+
+            <div id="search-results" class="schedule-grid"></div>
+
+            <h3 style="margin-top: 32px; margin-bottom: 16px; font-size: 1.1rem; color: var(--primary-color);">
+                Up Next
+            </h3>
+            <div id="public-queue"><p class="loading">Loading queue...</p></div>
+        </section>
+
+        <!-- Discord Chat Widget -->
+        <section class="chat-section" id="chat">
+            <h2>Live Chat</h2>
+            <div class="chat-container">
+                <div id="chat-messages" class="chat-messages">
+                    <p class="chat-placeholder">Connected via Discord</p>
+                </div>
+                <div class="discord-info">
+                    <p>💬 Join our Discord community to chat live!</p>
+                    <p class="small">Messages appear here automatically</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2024 Midnight Mass - 24/7 Online Radio</p>
+            <p class="small">Secure • Streaming • Community</p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="static/js/player.js"></script>
+    <script src="static/js/chat.js"></script>
+    <script src="static/js/nowplaying.js"></script>
+    <script src="static/js/requests.js"></script>
+    <script>
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializePlayer();
+            initNowPlaying();
+            initRequests();
+            loadSchedule();
+            loadChatMessages();
+            // Refresh chat every 5 seconds
+            setInterval(loadChatMessages, 5000);
+        });
+    </script>
+</body>
+</html>

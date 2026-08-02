@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Admin - Magic.fm</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!--
+        ADMIN PANEL
+
+        Every action here calls an endpoint protected by require_admin, which reads
+        is_admin live from the database on each request. Hiding this page from a
+        non-admin is cosmetic; the server is what actually enforces the boundary.
+    -->
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">🎙️ Magic.fm</h1>
+                <p class="tagline">Station Admin</p>
+            </div>
+            <nav class="nav">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/dj-dashboard.html" class="nav-link">My Dashboard</a>
+                <button id="logout-btn" class="nav-link"
+                        style="background: transparent; border: none; cursor: pointer;">Logout</button>
+            </nav>
+        </header>
+
+        <div id="access-denied" style="display: none;">
+            <div class="auth-container">
+                <div class="auth-card">
+                    <h2>Admin Access Required</h2>
+                    <p style="color: var(--text-secondary);">
+                        This account does not have admin rights.
+                    </p>
+                    <a href="/dj-dashboard.html" class="form-btn"
+                       style="display: block; text-align: center; text-decoration: none; margin-top: 20px;">
+                        Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div id="admin-content" style="display: none;">
+
+            <!-- Create DJ -->
+            <section class="schedule-section">
+                <h2>Add a DJ</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    You set their username and password, then hand the credentials over
+                    directly. They will be asked to choose their own password on first login.
+                </p>
+
+                <div id="create-error" class="error-message"></div>
+                <div id="create-success" class="success-message"></div>
+
+                <form id="create-dj-form">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label for="new-username">Username</label>
+                            <input type="text" id="new-username" required minlength="3" maxlength="32"
+                                   pattern="[a-zA-Z0-9_]+" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-email">Email</label>
+                            <input type="email" id="new-email" required autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label for="new-password">Initial Password</label>
+                            <input type="text" id="new-password" required minlength="8" autocomplete="off">
+                            <small style="color: var(--text-secondary);">8+ chars, 1 uppercase, 1 digit</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="new-display">Display Name</label>
+                            <input type="text" id="new-display" maxlength="100" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new-notes">Private Notes (vetting, style, contact)</label>
+                        <textarea id="new-notes" maxlength="2000"
+                                  placeholder="Interview notes, musical style, how you know them..."></textarea>
+                        <small style="color: var(--text-secondary);">Only visible to admins. The DJ cannot read this.</small>
+                    </div>
+
+                    <button type="submit" class="form-btn">Create Account</button>
+                </form>
+
+                <div id="new-credentials" style="display: none; margin-top: 24px; padding: 20px;
+                     background-color: rgba(16, 185, 129, 0.1); border-left: 4px solid var(--success-color); border-radius: 8px;">
+                    <p style="font-weight: 700; margin-bottom: 12px;">Account created — copy these now</p>
+                    <div id="cred-details" style="font-family: monospace; font-size: 0.9rem; line-height: 1.8;"></div>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 12px;">
+                        The stream key is shown here once. It is retrievable later from their
+                        dashboard, but not from this screen.
+                    </p>
+                </div>
+            </section>
+
+            <!-- DJ Roster -->
+            <section class="schedule-section">
+                <h2>DJ Roster</h2>
+                <div id="dj-list">
+                    <p class="loading">Loading...</p>
+                </div>
+            </section>
+
+            <!-- Autoplay -->
+            <section class="schedule-section">
+                <h2>Autoplay Library</h2>
+
+                <div id="autoplay-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    <div style="background-color: rgba(124, 58, 237, 0.1); padding: 16px; border-radius: 8px;">
+                        <div style="font-size: 1.8rem; font-weight: 700;" id="stat-total">-</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem;">Total tracks</div>
+                    </div>
+                    <div style="background-color: rgba(16, 185, 129, 0.1); padding: 16px; border-radius: 8px;">
+                        <div style="font-size: 1.8rem; font-weight: 700;" id="stat-licensed">-</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem;">Licensed</div>
+                    </div>
+                    <div style="background-color: rgba(239, 68, 68, 0.1); padding: 16px; border-radius: 8px;">
+                        <div style="font-size: 1.8rem; font-weight: 700;" id="stat-unlicensed">-</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem;">Unlicensed</div>
+                    </div>
+                    <div style="background-color: rgba(236, 72, 153, 0.1); padding: 16px; border-radius: 8px;">
+                        <div style="font-size: 1.8rem; font-weight: 700;" id="stat-queue">-</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem;">In queue</div>
+                    </div>
+                </div>
+
+                <div id="track-error" class="error-message"></div>
+
+                <form id="add-track-form">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label for="track-title">Title</label>
+                            <input type="text" id="track-title" required maxlength="200" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="track-artist">Artist</label>
+                            <input type="text" id="track-artist" maxlength="200" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px;">
+                        <div class="form-group">
+                            <label for="track-source">Source</label>
+                            <select id="track-source" required
+                                    style="width: 100%; padding: 12px; border: 1px solid var(--border-color);
+                                           border-radius: 8px; background-color: rgba(0,0,0,0.2);
+                                           color: var(--text-primary); font-size: 1rem;">
+                                <optgroup label="Licensed — safe">
+                                    <option value="jamendo">Jamendo (CC)</option>
+                                    <option value="fma">Free Music Archive</option>
+                                    <option value="ccmixter">ccMixter</option>
+                                    <option value="local">Local file (you own it)</option>
+                                    <option value="direct">Artist gave permission</option>
+                                </optgroup>
+                                <optgroup label="Unlicensed — fallback only">
+                                    <option value="youtube">YouTube</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="track-url">Source URL (https)</label>
+                            <input type="url" id="track-url" maxlength="500" placeholder="https://..." autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="track-license">License Note</label>
+                        <input type="text" id="track-license" maxlength="500"
+                               placeholder="e.g. CC BY-SA 4.0, or: artist emailed permission 2026-07-12" autocomplete="off">
+                        <small style="color: var(--text-secondary);">
+                            Why this is safe to broadcast. Worth filling in — this is your record if anyone asks.
+                        </small>
+                    </div>
+
+                    <button type="submit" class="form-btn">Add Track</button>
+                </form>
+
+                <div style="display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap;">
+                    <button id="advance-btn" class="control-btn">Play Next Track</button>
+                    <button id="refresh-library-btn" class="control-btn"
+                            style="background: transparent; border: 1px solid var(--border-color);">
+                        Refresh
+                    </button>
+                </div>
+
+                <div id="library-list" style="margin-top: 24px;">
+                    <p class="loading">Loading library...</p>
+                </div>
+            </section>
+
+            <!-- Queue -->
+            <section class="schedule-section">
+                <h2>Request Queue</h2>
+                <div id="queue-list"><p class="loading">Loading...</p></div>
+            </section>
+
+            <!-- Audit Log -->
+            <section class="schedule-section">
+                <h2>Recent Activity</h2>
+                <div id="audit-list"><p class="loading">Loading...</p></div>
+            </section>
+        </div>
+
+        <footer class="footer"><p>&copy; 2026 Magic.fm</p></footer>
+    </div>
+
+    <script>
+        const authToken = localStorage.getItem('auth_token');
+        if (!authToken) window.location.href = '/dj-login.html';
+
+        const H = { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' };
+
+        /** Escape via textContent - all values below are untrusted. */
+        function esc(text) {
+            const d = document.createElement('div');
+            d.textContent = text == null ? '' : text;
+            return d.innerHTML;
+        }
+
+        function fmtDate(s) {
+            if (!s) return '-';
+            try {
+                return new Date(s + (s.endsWith('Z') ? '' : 'Z'))
+                    .toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+            } catch { return s; }
+        }
+
+        function showMsg(id, msg, isError) {
+            const el = document.getElementById(id);
+            el.textContent = msg;
+            el.classList.add('show');
+            if (!isError) setTimeout(() => el.classList.remove('show'), 4000);
+        }
+
+        /** Confirm admin rights before showing anything. */
+        async function checkAdmin() {
+            try {
+                const res = await fetch('/api/dj/me', { headers: H });
+                if (res.status === 401) { window.location.href = '/dj-login.html'; return; }
+                const me = await res.json();
+                if (!me.is_admin) {
+                    document.getElementById('access-denied').style.display = 'block';
+                    return;
+                }
+                document.getElementById('admin-content').style.display = 'block';
+                loadDJs(); loadAutoplayStatus(); loadLibrary(); loadQueue(); loadAudit();
+            } catch {
+                document.getElementById('access-denied').style.display = 'block';
+            }
+        }
+
+        // ---------- DJ roster ----------
+        async function loadDJs() {
+            try {
+                const res = await fetch('/api/admin/djs', { headers: H });
+                if (!res.ok) throw new Error();
+                const djs = await res.json();
+
+                document.getElementById('dj-list').innerHTML = djs.map(d => `
+                    <div class="schedule-item" style="border-left-color: ${d.is_active ? 'var(--success-color)' : 'var(--danger-color)'};">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+                            <div style="min-width:200px;">
+                                <h4>${esc(d.display_name || d.username)}
+                                    ${d.is_admin ? '<span style="font-size:0.7rem; background:var(--primary-color); padding:2px 8px; border-radius:10px; margin-left:8px;">ADMIN</span>' : ''}
+                                    ${!d.is_active ? '<span style="font-size:0.7rem; background:var(--danger-color); padding:2px 8px; border-radius:10px; margin-left:8px;">SUSPENDED</span>' : ''}
+                                </h4>
+                                <div class="time">@${esc(d.username)} · ${esc(d.email)}</div>
+                                <div class="time">Last login: ${fmtDate(d.last_login)} · Keys: ${d.stream_key_count}</div>
+                                ${d.must_change_password ? '<div class="time" style="color:var(--secondary-color);">Password change pending</div>' : ''}
+                                ${d.notes ? `<div style="margin-top:8px; padding:8px; background:rgba(0,0,0,0.2); border-radius:4px; font-size:0.85rem;">${esc(d.notes)}</div>` : ''}
+                            </div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                ${d.is_active
+                                    ? `<button onclick="suspendDJ(${d.dj_id}, '${esc(d.username)}')" class="control-btn" style="background:var(--danger-color); font-size:0.85rem; padding:8px 14px;">Suspend</button>`
+                                    : `<button onclick="reactivateDJ(${d.dj_id})" class="control-btn" style="background:var(--success-color); font-size:0.85rem; padding:8px 14px;">Reactivate</button>`}
+                                <button onclick="resetPw(${d.dj_id}, '${esc(d.username)}')" class="control-btn" style="background:transparent; border:1px solid var(--border-color); font-size:0.85rem; padding:8px 14px;">Reset Password</button>
+                                <button onclick="revokeKeys(${d.dj_id}, '${esc(d.username)}')" class="control-btn" style="background:transparent; border:1px solid var(--danger-color); font-size:0.85rem; padding:8px 14px;">Revoke Keys</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('') || '<p class="loading">No accounts yet.</p>';
+            } catch {
+                document.getElementById('dj-list').innerHTML = '<p class="loading">Failed to load.</p>';
+            }
+        }
+
+        document.getElementById('create-dj-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                username: document.getElementById('new-username').value.trim(),
+                email: document.getElementById('new-email').value.trim(),
+                password: document.getElementById('new-password').value,
+                display_name: document.getElementById('new-display').value.trim() || null,
+                notes: document.getElementById('new-notes').value.trim() || null,
+                must_change_password: true
+            };
+            try {
+                const res = await fetch('/api/admin/djs', {
+                    method: 'POST', headers: H, body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    showMsg('create-error', data.detail || 'Could not create account', true);
+                    return;
+                }
+                document.getElementById('cred-details').innerHTML =
+                    `Username: ${esc(data.username)}<br>` +
+                    `Password: ${esc(payload.password)}<br>` +
+                    `Stream key: ${esc(data.stream_key)}`;
+                document.getElementById('new-credentials').style.display = 'block';
+                document.getElementById('create-dj-form').reset();
+                document.getElementById('create-error').classList.remove('show');
+                loadDJs();
+            } catch {
+                showMsg('create-error', 'Could not create account', true);
+            }
+        });
+
+        async function suspendDJ(id, name) {
+            if (!confirm(`Suspend ${name}?\n\nThey will be logged out, their stream keys revoked, and any live broadcast cut at the next publish.`)) return;
+            const res = await fetch(`/api/admin/djs/${id}/suspend`, { method:'POST', headers:H });
+            if (!res.ok) { const d = await res.json().catch(()=>({})); alert(d.detail || 'Failed'); return; }
+            loadDJs();
+        }
+
+        async function reactivateDJ(id) {
+            const res = await fetch(`/api/admin/djs/${id}/reactivate`, { method:'POST', headers:H });
+            if (!res.ok) { alert('Failed'); return; }
+            const d = await res.json();
+            alert(`Reactivated.\n\nNew stream key:\n${d.new_stream_key}\n\nOld keys stay revoked.`);
+            loadDJs();
+        }
+
+        async function resetPw(id, name) {
+            const pw = prompt(`New password for ${name}\n\n8+ characters, 1 uppercase, 1 digit:`);
+            if (!pw) return;
+            const res = await fetch(`/api/admin/djs/${id}/reset-password`, {
+                method:'POST', headers:H,
+                body: JSON.stringify({ new_password: pw, must_change_password: true })
+            });
+            if (!res.ok) { const d = await res.json().catch(()=>({})); alert(d.detail || 'Failed'); return; }
+            alert(`Password reset. Give them:\n${pw}\n\nThey will be asked to change it on login.`);
+            loadDJs();
+        }
+
+        async function revokeKeys(id, name) {
+            if (!confirm(`Revoke all stream keys for ${name}?\n\nUse this if a key leaked. A new one is issued.`)) return;
+            const res = await fetch(`/api/admin/djs/${id}/revoke-keys`, { method:'POST', headers:H });
+            if (!res.ok) { alert('Failed'); return; }
+            const d = await res.json();
+            alert(`Keys revoked.\n\nNew stream key:\n${d.new_stream_key}`);
+            loadDJs();
+        }
+
+        // ---------- Autoplay ----------
+        async function loadAutoplayStatus() {
+            try {
+                const s = await (await fetch('/api/autoplay/status')).json();
+                document.getElementById('stat-total').textContent = s.library_total;
+                document.getElementById('stat-licensed').textContent = s.library_licensed;
+                document.getElementById('stat-unlicensed').textContent = s.library_unlicensed;
+                document.getElementById('stat-queue').textContent = s.queue_length;
+            } catch {}
+        }
+
+        document.getElementById('add-track-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                title: document.getElementById('track-title').value.trim(),
+                artist: document.getElementById('track-artist').value.trim(),
+                source: document.getElementById('track-source').value,
+                source_url: document.getElementById('track-url').value.trim() || null,
+                license_note: document.getElementById('track-license').value.trim() || null
+            };
+            try {
+                const res = await fetch('/api/admin/autoplay/library', {
+                    method:'POST', headers:H, body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    const msg = Array.isArray(data.detail)
+                        ? data.detail.map(x => x.msg).join('; ')
+                        : (data.detail || 'Could not add track');
+                    showMsg('track-error', msg, true);
+                    return;
+                }
+                document.getElementById('add-track-form').reset();
+                document.getElementById('track-error').classList.remove('show');
+                loadLibrary(); loadAutoplayStatus();
+            } catch {
+                showMsg('track-error', 'Could not add track', true);
+            }
+        });
+
+        async function loadLibrary() {
+            try {
+                const tracks = await (await fetch('/api/admin/autoplay/library?limit=100', { headers:H })).json();
+                document.getElementById('library-list').innerHTML = tracks.length ? tracks.map(t => `
+                    <div class="schedule-item" style="border-left-color: ${['youtube'].includes(t.source) ? 'var(--danger-color)' : 'var(--success-color)'};">
+                        <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                            <div>
+                                <h4>${esc(t.title)}</h4>
+                                <div class="time">${esc(t.artist || 'Unknown artist')} · ${esc(t.source)} · played ${t.play_count}x</div>
+                                ${t.license_note ? `<div class="time" style="font-style:italic;">${esc(t.license_note)}</div>` : ''}
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button onclick="toggleTrack(${t.library_id})" class="control-btn" style="background:transparent; border:1px solid var(--border-color); font-size:0.8rem; padding:6px 12px;">
+                                    ${t.is_enabled ? 'Disable' : 'Enable'}
+                                </button>
+                                <button onclick="deleteTrack(${t.library_id})" class="control-btn" style="background:var(--danger-color); font-size:0.8rem; padding:6px 12px;">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('') : '<p class="loading">Library is empty. Add tracks above.</p>';
+            } catch {
+                document.getElementById('library-list').innerHTML = '<p class="loading">Failed to load.</p>';
+            }
+        }
+
+        async function toggleTrack(id) {
+            await fetch(`/api/admin/autoplay/library/${id}/toggle`, { method:'POST', headers:H });
+            loadLibrary(); loadAutoplayStatus();
+        }
+
+        async function deleteTrack(id) {
+            if (!confirm('Delete this track from the library?')) return;
+            await fetch(`/api/admin/autoplay/library/${id}`, { method:'DELETE', headers:H });
+            loadLibrary(); loadAutoplayStatus();
+        }
+
+        document.getElementById('advance-btn').addEventListener('click', async () => {
+            const res = await fetch('/api/autoplay/next', { method:'POST', headers:H });
+            if (!res.ok) { const d = await res.json().catch(()=>({})); alert(d.detail || 'Failed'); return; }
+            const t = await res.json();
+            alert(`Now playing:\n${t.artist || 'Unknown'} - ${t.title}\n\nSource: ${t.source}` +
+                  (t.requested_by ? `\nRequested by: ${t.requested_by}` : ''));
+            loadQueue(); loadLibrary(); loadAutoplayStatus();
+        });
+
+        document.getElementById('refresh-library-btn').addEventListener('click', () => {
+            loadLibrary(); loadAutoplayStatus(); loadQueue();
+        });
+
+        async function loadQueue() {
+            try {
+                const q = await (await fetch('/api/autoplay/queue')).json();
+                document.getElementById('queue-list').innerHTML = q.length ? q.map((item, i) => `
+                    <div class="schedule-item">
+                        <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                            <div>
+                                <h4>${i + 1}. ${esc(item.title)}</h4>
+                                <div class="time">${esc(item.artist || 'Unknown')} · requested by ${esc(item.requested_by)}</div>
+                            </div>
+                            <button onclick="removeQueued(${item.queue_id})" class="control-btn" style="background:var(--danger-color); font-size:0.8rem; padding:6px 12px;">Remove</button>
+                        </div>
+                    </div>
+                `).join('') : '<p class="loading">Queue is empty.</p>';
+            } catch {
+                document.getElementById('queue-list').innerHTML = '<p class="loading">Failed to load.</p>';
+            }
+        }
+
+        async function removeQueued(id) {
+            await fetch(`/api/admin/autoplay/queue/${id}`, { method:'DELETE', headers:H });
+            loadQueue(); loadAutoplayStatus();
+        }
+
+        async function loadAudit() {
+            try {
+                const log = await (await fetch('/api/admin/audit-log?limit=40', { headers:H })).json();
+                document.getElementById('audit-list').innerHTML = log.length ? `
+                    <div style="font-family: monospace; font-size: 0.85rem; line-height: 1.9;">
+                        ${log.map(e => `
+                            <div style="padding:6px 0; border-bottom:1px solid var(--border-color);">
+                                <span style="color:var(--text-secondary);">${fmtDate(e.timestamp)}</span>
+                                <span style="color:var(--secondary-color); margin-left:10px;">${esc(e.username)}</span>
+                                <span style="margin-left:10px;">${esc(e.action)}</span>
+                                ${e.details ? `<span style="color:var(--text-secondary); margin-left:10px;">${esc(e.details)}</span>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>` : '<p class="loading">No activity yet.</p>';
+            } catch {
+                document.getElementById('audit-list').innerHTML = '<p class="loading">Failed to load.</p>';
+            }
+        }
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('dj_username');
+            window.location.href = '/';
+        });
+
+        checkAdmin();
+    </script>
+</body>
+</html>

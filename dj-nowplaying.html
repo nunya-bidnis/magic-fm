@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Unlinked from public navigation, and additionally excluded from indexing. -->
+    <meta name="robots" content="noindex, nofollow">
+    <title>Manual Track Entry - Midnight Mass</title>
+    <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+    <div class="vw-scene" aria-hidden="true">
+        <div class="vw-sky">
+            <span class="vw-prism"></span>
+            <span class="vw-prism"></span>
+            <span class="vw-prism"></span>
+            <span class="vw-prism"></span>
+            <span class="vw-prism"></span>
+            <span class="vw-prism"></span>
+        </div>
+        <div class="vw-fog"></div>
+            <div class="vw-grid"></div>
+    </div>
+    <div class="vw-scrim" aria-hidden="true"></div>
+
+    <!--
+        MANUAL NOW-PLAYING FALLBACK
+
+        For DJs whose software cannot write a now-playing file or post to the API.
+
+        This page is not linked from anywhere in the public site. Note that being
+        unlinked is convenience, not security - anyone who guesses the URL can load
+        the page. The actual protection is that every action requires a valid DJ
+        session, and the API rejects unauthenticated requests. Do not treat the
+        obscure URL as a security control.
+    -->
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo"><img src="static/img/mingeplex-logo-final.png" alt="Mingeplex Live" class="logo-img"></h1>
+                <p class="tagline">Manual Track Entry</p>
+            </div>
+            <nav class="nav">
+                <a href="dj-dashboard.html" class="nav-link">Dashboard</a>
+                <button id="logout-btn" class="nav-link"
+                        style="background: transparent; border: none; cursor: pointer;">Logout</button>
+            </nav>
+        </header>
+
+        <div class="auth-container">
+            <div class="auth-card">
+                <h2>Manual Track Entry</h2>
+
+                <p style="color: var(--text-secondary); margin-bottom: 24px; font-size: 0.95rem;">
+                    Use this only if your software cannot report tracks automatically.
+                    What you type here appears on the homepage ticker immediately.
+                </p>
+
+                <div id="error-message" class="error-message"></div>
+                <div id="success-message" class="success-message"></div>
+
+                <form id="manual-form">
+                    <div class="form-group">
+                        <label for="track">Track Title</label>
+                        <input type="text" id="track" maxlength="200" required autocomplete="off">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="artist">Artist</label>
+                        <input type="text" id="artist" maxlength="200" autocomplete="off">
+                    </div>
+
+                    <button type="submit" class="form-btn">Update Ticker</button>
+                </form>
+
+                <button id="clear-btn" class="form-btn"
+                        style="background: transparent; border: 1px solid var(--border-color); margin-top: 12px;">
+                    Clear Ticker (end of set)
+                </button>
+
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 30px 0;">
+
+                <div style="background-color: rgba(124, 58, 237, 0.1); padding: 16px; border-radius: 8px;">
+                    <p style="font-size: 0.9rem; margin-bottom: 8px;"><strong>Currently showing:</strong></p>
+                    <p id="current-display" style="color: var(--text-secondary); font-size: 0.95rem;">
+                        Loading...
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>&copy; 2024 Midnight Mass</p>
+        </footer>
+    </div>
+
+    <script>
+        const authToken = localStorage.getItem('auth_token');
+
+        const form = document.getElementById('manual-form');
+        const errEl = document.getElementById('error-message');
+        const okEl = document.getElementById('success-message');
+        const currentEl = document.getElementById('current-display');
+
+        // Require a session. The server enforces this too - this redirect is a
+        // usability nicety, not the security boundary.
+        if (!authToken) {
+            window.location.href = 'dj-login.html';
+        }
+
+        function showError(msg) {
+            errEl.textContent = msg;
+            errEl.classList.add('show');
+            okEl.classList.remove('show');
+        }
+
+        function showSuccess(msg) {
+            okEl.textContent = msg;
+            okEl.classList.add('show');
+            errEl.classList.remove('show');
+            setTimeout(() => okEl.classList.remove('show'), 3000);
+        }
+
+        /**
+         * Show what the public ticker currently displays, so the DJ can confirm
+         * their update landed.
+         */
+        async function refreshCurrent() {
+            try {
+                const res = await fetch('/api/nowplaying', { cache: 'no-store' });
+                const data = await res.json();
+
+                if (data.is_live && data.track) {
+                    // textContent throughout - never innerHTML for this data.
+                    const label = data.artist
+                        ? `${data.artist} - ${data.track}`
+                        : data.track;
+                    currentEl.textContent = `${label}  (DJ: ${data.dj})`;
+                } else {
+                    currentEl.textContent = 'Nothing currently showing';
+                }
+            } catch {
+                currentEl.textContent = 'Unable to check';
+            }
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const track = document.getElementById('track').value.trim();
+            const artist = document.getElementById('artist').value.trim();
+
+            if (!track) {
+                showError('Track title is required');
+                return;
+            }
+
+            try {
+                // Sent as a JSON body, not query params. Query strings end up in
+                // nginx access logs, and this request carries an auth header.
+                const res = await fetch('/api/dj/nowplaying/manual', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ track, artist })
+                });
+
+                if (res.status === 401) {
+                    localStorage.removeItem('auth_token');
+                    window.location.href = 'dj-login.html';
+                    return;
+                }
+
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    showError(data.detail || 'Update failed');
+                    return;
+                }
+
+                showSuccess('Ticker updated');
+                refreshCurrent();
+            } catch {
+                showError('Update failed. Check your connection.');
+            }
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/dj/nowplaying', {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (res.ok) {
+                    showSuccess('Ticker cleared');
+                    form.reset();
+                    refreshCurrent();
+                } else {
+                    showError('Could not clear ticker');
+                }
+            } catch {
+                showError('Could not clear ticker');
+            }
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('dj_username');
+            window.location.href = 'index.html';
+        });
+
+        refreshCurrent();
+        setInterval(refreshCurrent, 15000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DJ Login - Magic.fm</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">🎙️ Magic.fm</h1>
+                <p class="tagline">DJ Portal</p>
+            </div>
+            <nav class="nav">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/dj-login.html" class="nav-link active">DJ Login</a>
+            </nav>
+        </header>
+
+        <div class="auth-container">
+            <div class="auth-card">
+                <h2>DJ Login</h2>
+
+                <div id="error-message" class="error-message"></div>
+                <div id="success-message" class="success-message"></div>
+
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" required minlength="3">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required minlength="8">
+                    </div>
+
+                    <button type="submit" class="form-btn">Login</button>
+                </form>
+
+                <!--
+                    Self-registration is disabled. Accounts are created by the
+                    station owner after an interview. The form below is left in
+                    place but hidden; the server rejects registration attempts
+                    regardless of what the page shows.
+                -->
+                <div class="auth-link">
+                    Want to DJ on Magic.fm? Accounts are set up by the station owner
+                    after a chat — get in touch.
+                </div>
+
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 30px 0; display: none;">
+
+                <form id="register-form" style="display: none;">
+                    <h3 style="text-align: center; margin-bottom: 20px; color: var(--primary-color);">Create DJ Account</h3>
+
+                    <div class="form-group">
+                        <label for="reg-username">Username</label>
+                        <input type="text" id="reg-username" name="username" required minlength="3" maxlength="32"
+                               pattern="[a-zA-Z0-9_]+" title="Alphanumeric and underscore only">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-email">Email</label>
+                        <input type="email" id="reg-email" name="email" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-password">Password</label>
+                        <input type="password" id="reg-password" name="password" required minlength="8"
+                               title="Min 8 chars, 1 uppercase, 1 digit">
+                        <small style="color: var(--text-secondary);">Min 8 chars, 1 uppercase letter, 1 digit</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-displayname">Display Name (Optional)</label>
+                        <input type="text" id="reg-displayname" name="display_name" maxlength="100">
+                    </div>
+
+                    <button type="submit" class="form-btn">Create Account</button>
+                </form>
+
+                <div class="auth-link" id="back-to-login" style="display: none;">
+                    <a href="#login" onclick="showLoginForm()">Back to login</a>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>&copy; 2024 Magic.fm - 24/7 Online Radio</p>
+        </footer>
+    </div>
+
+    <script>
+        const LOGIN_FORM = document.getElementById('login-form');
+        const REGISTER_FORM = document.getElementById('register-form');
+        const ERROR_MSG = document.getElementById('error-message');
+        const SUCCESS_MSG = document.getElementById('success-message');
+        const BACK_LOGIN = document.getElementById('back-to-login');
+
+        /**
+         * Show login form
+         */
+        function showLoginForm() {
+            LOGIN_FORM.style.display = 'block';
+            REGISTER_FORM.style.display = 'none';
+            BACK_LOGIN.style.display = 'none';
+            clearMessages();
+        }
+
+        /**
+         * Show register form
+         */
+        function showRegisterForm() {
+            LOGIN_FORM.style.display = 'none';
+            REGISTER_FORM.style.display = 'block';
+            BACK_LOGIN.style.display = 'block';
+            clearMessages();
+        }
+
+        /**
+         * Clear error/success messages
+         */
+        function clearMessages() {
+            ERROR_MSG.textContent = '';
+            ERROR_MSG.classList.remove('show');
+            SUCCESS_MSG.textContent = '';
+            SUCCESS_MSG.classList.remove('show');
+        }
+
+        /**
+         * Show error message
+         */
+        function showError(message) {
+            ERROR_MSG.textContent = message;
+            ERROR_MSG.classList.add('show');
+            SUCCESS_MSG.classList.remove('show');
+        }
+
+        /**
+         * Show success message
+         */
+        function showSuccess(message) {
+            SUCCESS_MSG.textContent = message;
+            SUCCESS_MSG.classList.add('show');
+            ERROR_MSG.classList.remove('show');
+        }
+
+        /**
+         * Escape HTML to prevent XSS
+         */
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        /**
+         * Handle DJ login
+         */
+        LOGIN_FORM.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                showError('Username and password required');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Store token in localStorage
+                    localStorage.setItem('auth_token', data.access_token);
+                    localStorage.setItem('dj_username', data.username);
+
+                    showSuccess('Login successful! Redirecting to dashboard...');
+
+                    setTimeout(() => {
+                        window.location.href = '/dj-dashboard.html';
+                    }, 1500);
+                } else {
+                    showError(data.detail || 'Login failed. Check credentials.');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showError('Login failed. Please try again.');
+            }
+        });
+
+        /**
+         * Handle DJ registration
+         */
+        REGISTER_FORM.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('reg-username').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const password = document.getElementById('reg-password').value;
+            const displayName = document.getElementById('reg-displayname').value.trim();
+
+            // Validate password
+            if (!/[A-Z]/.test(password)) {
+                showError('Password must contain at least one uppercase letter');
+                return;
+            }
+            if (!/\d/.test(password)) {
+                showError('Password must contain at least one digit');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        email: email,
+                        password: password,
+                        display_name: displayName || null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    localStorage.setItem('auth_token', data.access_token);
+                    localStorage.setItem('dj_username', data.username);
+
+                    showSuccess('Account created! Redirecting to dashboard...');
+
+                    setTimeout(() => {
+                        window.location.href = '/dj-dashboard.html';
+                    }, 1500);
+                } else {
+                    showError(data.detail || 'Registration failed.');
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showError('Registration failed. Please try again.');
+            }
+        });
+
+        // On load, check if already logged in
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('auth_token');
+            if (token) {
+                window.location.href = '/dj-dashboard.html';
+            }
+        });
+    </script>
+</body>
+</html>
